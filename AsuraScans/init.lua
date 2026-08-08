@@ -74,10 +74,11 @@ function M.pages(chapter_url)
 end
 function M.latest()
     local html = http.get(BASE_URL .. "/comics")
+    local latest_html = html:match('(<astro%-island[^>]-LatestUpdates[^>]*>.-</astro%-island>)') or ""
     return paired_cards(
-        html,
-        'astro-island[component-url*="LatestUpdates"] a[href*="/comics/"]',
-        'astro-island[component-url*="LatestUpdates"] a[href*="/comics/"] img'
+        latest_html,
+        'a[href*="/comics/"]',
+        'a[href*="/comics/"] img'
     )
 end
 function M.popular()
