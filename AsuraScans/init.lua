@@ -22,6 +22,22 @@ local function cards(doc)
     end
     return results
 end
+local function linked_cards(doc)
+    local results, seen = {}, {}
+    for _, link in ipairs(doc:select_all('a[href*="/comics/"]')) do
+        local href, image = link:attr("href"), link:select_one("img")
+        if href and not href:find("/chapter/", 1, true) and image then
+            local url = stdlib.url_join(BASE_URL, href)
+            local title = image:attr("alt") or image:attr("title") or ""
+            if title ~= "" and not seen[url] then
+                seen[url] = true
+                results[#results + 1] = { title = title, manga_title = title, url = url, manga_url = url,
+                    thumbnail_url = stdlib.url_join(BASE_URL, image:attr("src") or image:attr("data-src") or "") }
+            end
+        end
+    end
+    return results
+end
 function M.search(params)
     params = params or {}
     local query = { search = params.query or params.title, author = params.author, status = params.status,
@@ -42,37 +58,31 @@ function M.manga_details(url)
 end
 function M.chapters(manga_url)
     manga_url = stdlib.url_join(BASE_URL, manga_url)
-    local data, results = blob(dom.fetch(manga_url), "ChapterList") or {}, {}
-    local list = value(data.chapters) or {}
-    local series_url = value(data.publicUrl) or "/comics/" .. (value(data.seriesSlug) or manga_url:match("/comics/([^/?#]+)"))
-    for _, wrapped in ipairs(list) do
-        local chapter, number = value(wrapped), value(value(wrapped).number)
-        local name = "Chapter " .. tostring(number)
-        local title = value(chapter.title)
-        if title and title ~= "" then name = name .. ": " .. title end
-        results[#results + 1] = { source_url = stdlib.url_join(BASE_URL, series_url .. "/chapter/" .. number),
-            name = name, chapter_number = tostring(number), scanlator = "Asura Scans", language = "en",
-            page_count = value(chapter.page_count), upload_date = value(chapter.published_at) and stdlib.parse_date(value(chapter.published_at)) or nil }
+    local doc, results, seen = dom.fetch(manga_url), {}, {}
+    for _, link in ipairs(doc:select_all('a[href*="/chapter/"]')) do
+        local href = link:attr("href")
+        if href then
+            local url, number = stdlib.url_join(BASE_URL, href), href:match("/chapter/([^/?#]+)")
+            if number and not seen[url] then
+                seen[url] = true
+                local label = link:text():match("Chapter[^\n]*") or "Chapter " .. number
+                results[#results + 1] = { source_url = url, name = stdlib.trim(label), chapter_number = number,
+                    scanlator = "Asura Scans", language = "en" }
+            end
+        end
     end
     return results
 end
 function M.pages(chapter_url)
-    local data = blob(dom.fetch(stdlib.url_join(BASE_URL, chapter_url)), "ChapterReader") or {}
-    local results = {}
-    for _, wrapped in ipairs(value(data.pages) or {}) do
-        results[#results + 1] = stdlib.url_join(BASE_URL, value(value(wrapped).url))
+    local doc, results = dom.fetch(stdlib.url_join(BASE_URL, chapter_url)), {}
+    for _, image in ipairs(doc:select_all("img[data-page-index]")) do
+        local src = image:attr("src") or image:attr("data-src")
+        if src then results[#results + 1] = stdlib.url_join(BASE_URL, src) end
     end
     return results
 end
 function M.latest()
-    local data, results = blob(dom.fetch(BASE_URL .. "/comics"), "LatestUpdates") or {}, {}
-    for _, wrapped in ipairs(value(data.chapters) or {}) do
-        local item, number = value(wrapped), value(value(wrapped).number)
-        results[#results + 1] = { manga_title = value(item.comic_name), manga_url = stdlib.url_join(BASE_URL, value(item.comic_public_url)),
-            thumbnail_url = stdlib.url_join(BASE_URL, value(item.comic_cover) or ""), chapter_name = value(item.title) or "Chapter " .. tostring(number),
-            chapter_number = tostring(number), upload_date = value(item.published_at) and stdlib.parse_date(value(item.published_at)) or nil }
-    end
-    return results
+    return linked_cards(dom.fetch(BASE_URL .. "/comics"))
 end
 function M.popular()
     return cards(dom.fetch(BASE_URL .. "/browse/comics?order=popular"))
