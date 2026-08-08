@@ -1,11 +1,10 @@
 local M = {}
 local BASE_URL = "https://asurascans.com"
 local function blob(doc, name)
-    local selector = name == "PopularSidebar" and 'astro-island[component-url*="PopularSidebar"]'
-        or 'script[data-name="' .. name .. '"]'
-    local el = doc:select_one(selector)
+    local el = doc:select_one('astro-island[component-url*="' .. name .. '"]')
+        or doc:select_one('script[data-name="' .. name .. '"]')
     if not el then return nil end
-    local raw = name == "PopularSidebar" and el:attr("props") or el:text()
+    local raw = el:attr("props") or el:text()
     local ok, data = pcall(json.parse, raw)
     return ok and data or nil
 end
@@ -53,7 +52,7 @@ function M.chapters(manga_url)
         if title and title ~= "" then name = name .. ": " .. title end
         results[#results + 1] = { source_url = stdlib.url_join(BASE_URL, series_url .. "/chapter/" .. number),
             name = name, chapter_number = tostring(number), scanlator = "Asura Scans", language = "en",
-            page_count = value(chapter.page_count), upload_date = stdlib.parse_date(value(chapter.published_at)) }
+            page_count = value(chapter.page_count), upload_date = value(chapter.published_at) and stdlib.parse_date(value(chapter.published_at)) or nil }
     end
     return results
 end
@@ -71,24 +70,11 @@ function M.latest()
         local item, number = value(wrapped), value(value(wrapped).number)
         results[#results + 1] = { manga_title = value(item.comic_name), manga_url = stdlib.url_join(BASE_URL, value(item.comic_public_url)),
             thumbnail_url = stdlib.url_join(BASE_URL, value(item.comic_cover) or ""), chapter_name = value(item.title) or "Chapter " .. tostring(number),
-            chapter_number = tostring(number), upload_date = stdlib.parse_date(value(item.published_at)) }
+            chapter_number = tostring(number), upload_date = value(item.published_at) and stdlib.parse_date(value(item.published_at)) or nil }
     end
     return results
 end
 function M.popular()
-    local doc, results = dom.fetch(BASE_URL .. "/browse/comics?order=popular"), {}
-    local data, by_slug = blob(doc, "PopularSidebar") or {}, {}
-    for _, wrapped in ipairs(value(data.items) or {}) do
-        local item = value(wrapped); by_slug[value(item.slug)] = item
-    end
-    for _, card in ipairs(cards(doc)) do
-        local slug = card.url:match("/comics/(.-)%-[%x]+$") or card.url:match("/comics/([^/?#]+)")
-        local item, genres = by_slug[slug] or {}, {}
-        for _, wrapped in ipairs(value(item.genres) or {}) do genres[#genres + 1] = value(value(wrapped).name) end
-        results[#results + 1] = { title = card.title, url = card.url, thumbnail_url = card.thumbnail_url,
-            status = card.status, type = (value(item.type) or ""):lower(), chapter_count = value(item.chapter_count) or card.chapter_count,
-            rating = value(item.rating), genres_json = json.encode(genres) }
-    end
-    return results
+    return cards(dom.fetch(BASE_URL .. "/browse/comics?order=popular"))
 end
 return M
