@@ -74,19 +74,11 @@ function M.pages(chapter_url)
 end
 function M.latest()
     local html = http.get(BASE_URL .. "/comics")
-    local data, results = blob(html, "LatestUpdates") or {}, {}
-    for _, wrapped in ipairs(value(data.chapters) or {}) do
-        local item, number = value(wrapped), value(value(wrapped).number)
-        results[#results + 1] = {
-            manga_title = value(item.comic_name),
-            manga_url = stdlib.url_join(BASE_URL, value(item.comic_public_url)),
-            thumbnail_url = stdlib.url_join(BASE_URL, value(item.comic_cover) or ""),
-            chapter_name = value(item.title) or "Chapter " .. tostring(number),
-            chapter_number = tostring(number),
-            upload_date = value(item.published_at) and stdlib.parse_date(value(item.published_at)) or nil,
-        }
-    end
-    return results
+    return paired_cards(
+        html,
+        'astro-island[component-url*="LatestUpdates"] a[href*="/comics/"]',
+        'astro-island[component-url*="LatestUpdates"] a[href*="/comics/"] img'
+    )
 end
 function M.popular()
     local html = http.get(BASE_URL .. "/browse/comics?order=popular")
