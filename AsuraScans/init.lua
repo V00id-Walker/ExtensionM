@@ -73,18 +73,8 @@ function M.pages(chapter_url)
     return results
 end
 function M.latest()
-    local html = http.get(BASE_URL .. "/comics")
-    local results, seen = {}, {}
-    for href, cover, title in html:gmatch('<a href="([^"]+)" class="col%-span%-4[^"]*">%s*<img src="([^"]+)" alt="([^"]+)"') do
-        local url = stdlib.url_join(BASE_URL, href)
-        if not seen[url] then
-            seen[url] = true
-            title = stdlib.decode_entities(title)
-            results[#results + 1] = { title = title, manga_title = title, url = url, manga_url = url,
-                thumbnail_url = stdlib.url_join(BASE_URL, cover) }
-        end
-    end
-    return results
+    local html = http.get(BASE_URL .. "/browse/comics?order=update")
+    return paired_cards(html, '[data-series-id] > a[href*="/comics/"]', '[data-series-id] > a[href*="/comics/"] img')
 end
 function M.popular()
     local html = http.get(BASE_URL .. "/browse/comics?order=popular")
