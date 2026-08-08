@@ -73,11 +73,11 @@ function M.pages(chapter_url)
     return results
 end
 function M.latest()
-    local html = http.get(BASE_URL .. "/browse/comics?order=update")
+    local html = http.get(BASE_URL .. "/browse/comics?sort=latest")
     return paired_cards(html, '[data-series-id] > a[href*="/comics/"]', '[data-series-id] > a[href*="/comics/"] img')
 end
 function M.popular()
-    local html = http.get(BASE_URL .. "/browse/comics?order=popular")
+    local html = http.get(BASE_URL .. "/browse/comics?sort=popular")
     return paired_cards(html, '[data-series-id] > a[href*="/comics/"]', '[data-series-id] > a[href*="/comics/"] img')
 end
 return M
