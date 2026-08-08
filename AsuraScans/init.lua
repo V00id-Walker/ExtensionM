@@ -1,19 +1,19 @@
 local M = {}
 local BASE_URL = "https://asurascans.com"
-local function blob(doc, name)
-    local el = doc:select_one('astro-island[component-url*="' .. name .. '"]')
-        or doc:select_one('script[data-name="' .. name .. '"]')
-    if not el then return nil end
-    local raw = el:attr("props") or el:text()
-    local ok, data = pcall(json.parse, raw)
-    return ok and data or nil
-end
 local function value(pair) return pair and pair[2] end
 local function first(html, selector)
     return dom.select(html, selector)[1]
 end
 local function attr(element, name)
     return element and element.attributes and element.attributes[name]
+end
+local function blob(html, name)
+    local el = first(html, 'astro-island[component-url*="' .. name .. '"]')
+        or first(html, 'script[data-name="' .. name .. '"]')
+    if not el then return nil end
+    local raw = attr(el, "props") or el.text
+    local ok, data = pcall(json.parse, raw)
+    return ok and data or nil
 end
 local function paired_cards(html, link_selector, image_selector)
     local results, links, images = {}, dom.select(html, link_selector), dom.select(html, image_selector)
@@ -74,7 +74,19 @@ function M.pages(chapter_url)
 end
 function M.latest()
     local html = http.get(BASE_URL .. "/comics")
-    return paired_cards(html, "a.slide-link", "a.slide-link img")
+    local data, results = blob(html, "LatestUpdates") or {}, {}
+    for _, wrapped in ipairs(value(data.chapters) or {}) do
+        local item, number = value(wrapped), value(value(wrapped).number)
+        results[#results + 1] = {
+            manga_title = value(item.comic_name),
+            manga_url = stdlib.url_join(BASE_URL, value(item.comic_public_url)),
+            thumbnail_url = stdlib.url_join(BASE_URL, value(item.comic_cover) or ""),
+            chapter_name = value(item.title) or "Chapter " .. tostring(number),
+            chapter_number = tostring(number),
+            upload_date = value(item.published_at) and stdlib.parse_date(value(item.published_at)) or nil,
+        }
+    end
+    return results
 end
 function M.popular()
     local html = http.get(BASE_URL .. "/browse/comics?order=popular")
