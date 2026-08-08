@@ -1,0 +1,11 @@
+{
+    "id": "asurascans",
+    "name": "AsuraScans",
+    "version": "0.0.1",
+    "url": "https://asurascans.com",
+    "logo": "https://asurascans.com/images/logo.webp",
+    "Language": "en",
+    "ContentRating": "Safe",
+    "Type": "ScanlationGroup",
+    "CL": "False"
+}
