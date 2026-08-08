@@ -15,28 +15,16 @@ end
 local function attr(element, name)
     return element and element.attributes and element.attributes[name]
 end
-local function cards(html)
-    local results = {}
-    for _, link in ipairs(dom.select(html, 'a[href*="/comics/"]')) do
-        local href, title = attr(link, "href"), stdlib.trim(link.text or "")
-        if href and not href:find("/chapter/", 1, true) and title ~= "" then results[#results + 1] = {
-            title = title, url = stdlib.url_join(BASE_URL, href),
+local function paired_cards(html, link_selector, image_selector)
+    local results, links, images = {}, dom.select(html, link_selector), dom.select(html, image_selector)
+    for index, link in ipairs(links) do
+        local image, href = images[index], attr(link, "href")
+        local title = attr(image, "alt") or ""
+        if href and title ~= "" then results[#results + 1] = {
+            title = title, manga_title = title,
+            url = stdlib.url_join(BASE_URL, href), manga_url = stdlib.url_join(BASE_URL, href),
+            thumbnail_url = stdlib.url_join(BASE_URL, attr(image, "src") or attr(image, "data-src") or ""),
         } end
-    end
-    return results
-end
-local function linked_cards(doc)
-    local results, seen = {}, {}
-    for _, link in ipairs(dom.select(doc, 'a[href*="/comics/"]')) do
-        local href, title = attr(link, "href"), stdlib.trim(link.text or "")
-        if href and not href:find("/chapter/", 1, true) and title ~= "" then
-            local url = stdlib.url_join(BASE_URL, href)
-            if not seen[url] then
-                seen[url] = true
-                results[#results + 1] = { title = title, manga_title = title, url = url, manga_url = url,
-                    thumbnail_url = "" }
-            end
-        end
     end
     return results
 end
@@ -44,7 +32,8 @@ function M.search(params)
     params = params or {}
     local query = { search = params.query or params.title, author = params.author, status = params.status,
         type = params.type, order = params.order or "update", page = params.page or 1 }
-    return cards(http.get(BASE_URL .. "/browse/comics?" .. http.encode(query)))
+    local html = http.get(BASE_URL .. "/browse/comics?" .. http.encode(query))
+    return paired_cards(html, '[data-series-id] > a[href*="/comics/"]', '[data-series-id] > a[href*="/comics/"] img')
 end
 function M.manga_details(url)
     url = stdlib.url_join(BASE_URL, url)
@@ -84,9 +73,11 @@ function M.pages(chapter_url)
     return results
 end
 function M.latest()
-    return linked_cards(http.get(BASE_URL .. "/comics"))
+    local html = http.get(BASE_URL .. "/comics")
+    return paired_cards(html, "a.slide-link", "a.slide-link img")
 end
 function M.popular()
-    return cards(http.get(BASE_URL .. "/browse/comics?order=popular"))
+    local html = http.get(BASE_URL .. "/browse/comics?order=popular")
+    return paired_cards(html, '[data-series-id] > a[href*="/comics/"]', '[data-series-id] > a[href*="/comics/"] img')
 end
 return M
