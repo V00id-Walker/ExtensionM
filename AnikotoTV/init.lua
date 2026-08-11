@@ -24,26 +24,22 @@ end
 
 local function poster_results(html)
     local results, seen = {}, {}
-    local titles = dom.select(html, ".ani.poster .name.d-title, .poster .name.d-title")
-    local images = dom.select(html, ".ani.poster img, .poster img")
-    for index, title in ipairs(titles) do
-        local href = attr(title, "href")
-        if href then
-            local url = series_url(href)
-            if not seen[url] then
-                local image = images[index]
-                seen[url] = true
-                results[#results + 1] = {
-                    title = clean(title.text),
-                    manga_title = clean(title.text),
-                    url = url,
-                    manga_url = url,
-                    thumbnail_url = absolute(attr(image, "data-src") or attr(image, "src") or ""),
-                    type = "anime",
-                    source = "AniKoto TV",
-                    language = "en"
-                }
-            end
+    for attrs, title in html:gmatch('<a%s+([^>]-class="name%s+d%-title"[^>]*)>(.-)</a>') do
+        local href = attrs:match('href="([^"]+)"')
+        local url = href and series_url(href) or nil
+        title = clean(title:gsub("<[^>]->", " "))
+        if url and title ~= "" and not seen[url] then
+            seen[url] = true
+            results[#results + 1] = {
+                title = title,
+                manga_title = title,
+                url = url,
+                manga_url = url,
+                thumbnail_url = "",
+                type = "anime",
+                source = "AniKoto TV",
+                language = "en"
+            }
         end
     end
     return results
