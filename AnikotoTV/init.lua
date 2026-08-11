@@ -24,17 +24,14 @@ end
 
 local function poster_results(html)
     local results, seen = {}, {}
-    for _, title in ipairs(dom.select(html, ".ani.poster .name.d-title, .poster .name.d-title")) do
+    local titles = dom.select(html, ".ani.poster .name.d-title, .poster .name.d-title")
+    local images = dom.select(html, ".ani.poster img, .poster img")
+    for index, title in ipairs(titles) do
         local href = attr(title, "href")
-        if not href then
-            local parent = title.parent
-            href = attr(parent, "href")
-        end
         if href then
             local url = series_url(href)
             if not seen[url] then
-                local card = title.parent
-                local image = card and dom.select(card, "img")[1] or nil
+                local image = images[index]
                 seen[url] = true
                 results[#results + 1] = {
                     title = clean(title.text),
