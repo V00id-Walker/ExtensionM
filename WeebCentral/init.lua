@@ -104,15 +104,19 @@ function M.chapters(manga_url)
             local url = absolute(href)
             if not seen[url] and not url:find("/bookmarks", 1, true) and not url:find("/report", 1, true) then
                 seen[url] = true
+                local escaped_href = href:gsub("([^%w])", "%%%1")
+                local block = html:match('href="' .. escaped_href .. '".-</a>') or ""
                 local text = clean(link.text)
                 if text == "" then
-                    text = clean((link.text or html:match('href="' .. href:gsub("([^%w])", "%%%1") .. '".-[Cc]hapter%s*[%d%.]+') or ""):match("([Cc]hapter%s*[%d%.]+)") or "")
+                    text = clean((block:match("([Cc]hapter%s*[%d%.]+)") or ""))
                 end
+                local date = block:match('datetime="([^"]+)"') or ""
                 local number = text:match("[Cc]hapter%s*([%d%.]+)") or text:match("[Ee]pisode%s*([%d%.]+)")
                 results[#results + 1] = {
                     source_url = url,
                     name = text ~= "" and text or "Chapter",
                     chapter_number = number,
+                    upload_date_text = date,
                     language = "en"
                 }
             end
