@@ -24,6 +24,15 @@ local function detail_value(html, label)
     return text_only(block)
 end
 local function absolute(url) return stdlib.url_join(BASE_URL, url or "") end
+local function surrounding_article(html, needle)
+    local start_at = html:find(needle, 1, true)
+    if not start_at then return "" end
+    local before = html:sub(1, start_at)
+    local article_start = before:match(".*()<article")
+    local article_end = html:find("</article>", start_at, true)
+    if not article_start or not article_end then return "" end
+    return html:sub(article_start, article_end + 9)
+end
 local function infer_card_type(title, block)
     title = title or ""
     block = block or ""
@@ -83,8 +92,7 @@ local function card_results(html)
         title = clean((title:gsub("%s+[Cc]over$", "")))
         local url = href and absolute(href)
         if url and id and title ~= "" and not seen[url] then
-            local escaped_href = href:gsub("([^%w])", "%%%1")
-            local block = html:match("<article[^>]->.-" .. escaped_href .. ".-</article>") or ""
+            local block = surrounding_article(html, href) ~= "" and surrounding_article(html, href) or surrounding_article(html, title)
             local content_type = infer_card_type(title, block)
             seen[url] = true
             results[#results + 1] = {
