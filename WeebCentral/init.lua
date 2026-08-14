@@ -67,12 +67,24 @@ local function card_results(html)
     return results
 end
 
+local function search_results(html)
+    local results = card_results(html)
+    for _, item in ipairs(results) do
+        local details = M.manga_details(item.url)
+        item.type = details.type
+        item.status = details.status
+        item.author = details.author
+        item.description = details.description
+    end
+    return results
+end
+
 function M.search(params)
     params = params or {}
     local query = params.query or params.title or ""
     local html = http.post and http.post(BASE_URL .. "/search/simple?location=main", http.encode({ text = query }), form_headers())
         or get(BASE_URL .. "/search?" .. http.encode({ text = query }))
-    return card_results(html)
+    return search_results(html)
 end
 
 function M.manga_details(url)
