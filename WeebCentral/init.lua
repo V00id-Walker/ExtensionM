@@ -13,20 +13,30 @@ end
 local function get(url) return http.get(url, headers()) end
 
 local function card_results(html)
-    local results, seen = {}, {}
+    local results, seen, covers, cover_titles = {}, {}, {}, {}
+    for _, image in ipairs(dom.select(html, 'img[src*="/cover/fallback/"]')) do
+        local src = attr(image, "src")
+        local id = src and src:match("/cover/fallback/([^%.]+)%.")
+        if id and not covers[id] then
+            covers[id] = absolute(src)
+            cover_titles[id] = clean((attr(image, "alt") or ""):gsub("%s+[Cc]over$", ""))
+        end
+    end
     for _, link in ipairs(dom.select(html, 'a[href*="/series/"]')) do
         local href = attr(link, "href")
+        local id = href and href:match("/series/([^/]+)/[^/?#]+")
         local title = clean(link.text)
+        if title == "" and id then title = cover_titles[id] or "" end
         title = clean((title:gsub("%s+[Cc]over$", "")))
         local url = href and absolute(href)
-        if url and title ~= "" and not seen[url] then
+        if url and id and title ~= "" and not seen[url] then
             seen[url] = true
             results[#results + 1] = {
                 title = title,
                 manga_title = title,
                 url = url,
                 manga_url = url,
-                thumbnail_url = "",
+                thumbnail_url = covers[id] or ("https://temp.compsci88.com/cover/fallback/" .. id .. ".jpg"),
                 source = "Weeb Central",
                 language = "en"
             }
