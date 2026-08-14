@@ -1,0 +1,11 @@
+{
+    "id": "onisaga",
+    "name": "OniSaga",
+    "version": "0.0.1",
+    "url": "https://onisaga.com",
+    "logo": "https://onisaga.com/favicon.ico",
+    "Language": "en",
+    "ContentRating": "Mix",
+    "Type": "Aggregator",
+    "CL": "True"
+}

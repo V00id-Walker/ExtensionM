@@ -1,0 +1,11 @@
+{
+    "id": "comix",
+    "name": "Comix",
+    "version": "0.0.1",
+    "url": "https://comix.to",
+    "logo": "https://comix.to/favicon.ico",
+    "Language": "en",
+    "ContentRating": "Mix",
+    "Type": "Aggregator",
+    "CL": "True"
+}

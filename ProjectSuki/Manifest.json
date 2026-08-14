@@ -1,0 +1,11 @@
+{
+    "id": "projectsuki",
+    "name": "Project Suki",
+    "version": "0.0.1",
+    "url": "https://projectsuki.com",
+    "logo": "https://projectsuki.com/themes/default/img/favicon.ico",
+    "Language": "en",
+    "ContentRating": "Mix",
+    "Type": "Aggregator",
+    "CL": "False"
+}

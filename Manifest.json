@@ -1,8 +1,16 @@
 {
-    "version": "0.0.29",
+    "version": "0.0.30",
     "extensions": [
       "AsuraScans",
       "Atsumaru",
+      "Comix",
+      "Kagane",
+      "MangaBall",
+      "MangaCloud",
+      "MangaDot",
+      "MangaFire",
+      "OniSaga",
+      "ProjectSuki",
       "WeebCentral"
     ]
   }

@@ -1,11 +1,11 @@
 {
     "id": "atsumaru",
     "name": "Atsumaru",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "url": "https://atsu.moe",
     "logo": "https://atsu.moe/images/banner.png",
     "Language": "en",
     "ContentRating": "Safe",
-    "Type": "Manga",
+    "Type": "Aggregator",
     "CL": "False"
 }

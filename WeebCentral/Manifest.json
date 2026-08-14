@@ -1,11 +1,11 @@
 {
     "id": "weebcentral",
     "name": "Weeb Central",
-    "version": "0.0.13",
+    "version": "0.0.14",
     "url": "https://weebcentral.com",
     "logo": "https://weebcentral.com/static/images/brand.png",
     "Language": "en",
-    "ContentRating": "Safe",
-    "Type": "Manga",
+    "ContentRating": "Mix",
+    "Type": "Aggregator",
     "CL": "False"
 }
