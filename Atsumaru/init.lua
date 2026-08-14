@@ -19,6 +19,11 @@ local function asset(url)
     if url:sub(1, 1) ~= "/" then url = "/static/" .. url end
     return stdlib.url_join(CDN_URL, url)
 end
+local function normalize_type(value)
+    value = clean(value or "")
+    if value:lower() == "manwha" then return "Manhwa" end
+    return value
+end
 
 local function manga_url(id) return BASE_URL .. "/manga/" .. tostring(id or "") end
 
@@ -38,7 +43,8 @@ local function add_item(results, seen, item)
         manga_url = url,
         thumbnail_url = asset(item.mediumImage or item.posterMedium or item.smallImage or item.posterSmall or item.image or item.poster),
         status = item.status,
-        type = item.type,
+        type = normalize_type(item.type),
+        sourceType = normalize_type(item.type),
         source = "Atsumaru",
         language = "en"
     }
@@ -109,7 +115,7 @@ function M.manga_details(url)
         genres_json = json.encode(genres),
         status = clean(page.status or ""):lower(),
         thumbnail_url = asset(page.poster and (page.poster.mediumImage or page.poster.image) or page.mediumImage or page.image),
-        type = page.type,
+        type = normalize_type(page.type),
         source = "Atsumaru",
         language = "en"
     }
