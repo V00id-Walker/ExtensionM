@@ -14,7 +14,14 @@ local function clean(text)
             :gsub("&lt;", "<")
             :gsub("&gt;", ">")
     end
-    return stdlib.trim((text:gsub("%s+", " ")))
+    return stdlib.trim((text:gsub("%s+", " "):gsub("%s+,", ",")))
+end
+local function text_only(html)
+    return clean((html or ""):gsub("<br%s*/?>", " "):gsub("<[^>]->", " "))
+end
+local function detail_value(html, label)
+    local block = html:match("<strong>%s*" .. label .. "%s*:?%s*</strong>(.-)</li>")
+    return text_only(block)
 end
 local function absolute(url) return stdlib.url_join(BASE_URL, url or "") end
 local function headers()
@@ -73,20 +80,29 @@ function M.manga_details(url)
     local html = get(url)
     local title = first(html, "h1") or first(html, 'meta[property="og:title"]')
     local image = first(html, 'meta[property="og:image"]')
-    local description = first(html, 'meta[name="description"]') or first(html, 'meta[property="og:description"]')
+    local meta_description = first(html, 'meta[name="description"]') or first(html, 'meta[property="og:description"]')
     local canonical = first(html, 'link[rel="canonical"]')
     local genres = {}
     for _, genre in ipairs(dom.select(html, 'a[href*="/genres/"], a[href*="/search?included_tag"]')) do
         local value = clean(genre.text)
         if value ~= "" then genres[#genres + 1] = value end
     end
-    local plain = clean(html:gsub("<[^>]->", " "))
+    local description = text_only(html:match("<strong>%s*Description%s*</strong>%s*<p[^>]*>(.-)</p>") or "")
+    if description == "" then description = clean(meta_description and attr(meta_description, "content") or "") end
+    local author = detail_value(html, "Author%(s%)")
+    local content_type = detail_value(html, "Type")
+    local status = detail_value(html, "Status")
+    local released = detail_value(html, "Released")
     return {
         title = clean((title and (title.text or attr(title, "content")) or ""):gsub("|%s*Weeb Central$", "")),
         url = canonical and absolute(attr(canonical, "href")) or url,
-        description = clean(description and attr(description, "content") or ""),
+        description = description,
         genres_json = json.encode(genres),
-        status = clean(plain:match("Status%s+([%a%s%-_]+)%s+") or ""),
+        author = author,
+        artist = author,
+        type = content_type,
+        status = status,
+        released = released,
         thumbnail_url = absolute(image and attr(image, "content") or ""),
         source = "Weeb Central",
         language = "en"
