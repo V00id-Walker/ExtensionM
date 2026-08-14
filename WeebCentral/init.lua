@@ -4,7 +4,17 @@ local BASE_URL = "https://weebcentral.com"
 local function first(html, selector) return dom.select(html, selector)[1] end
 local function attr(element, name) return element and element.attributes and element.attributes[name] end
 local function clean(text)
-    return stdlib.trim(((text or ""):gsub("&amp;", "&"):gsub("&#039;", "'"):gsub("&quot;", '"'):gsub("%s+", " ")))
+    text = text or ""
+    for _ = 1, 2 do
+        text = text:gsub("&amp;", "&")
+            :gsub("&#039;", "'")
+            :gsub("&#39;", "'")
+            :gsub("&apos;", "'")
+            :gsub("&quot;", '"')
+            :gsub("&lt;", "<")
+            :gsub("&gt;", ">")
+    end
+    return stdlib.trim((text:gsub("%s+", " ")))
 end
 local function absolute(url) return stdlib.url_join(BASE_URL, url or "") end
 local function headers()
@@ -13,20 +23,30 @@ end
 local function get(url) return http.get(url, headers()) end
 
 local function card_results(html)
-    local results, seen = {}, {}
+    local results, seen, covers, cover_titles = {}, {}, {}, {}
+    for _, image in ipairs(dom.select(html, 'img[src*="/cover/fallback/"]')) do
+        local src = attr(image, "src")
+        local id = src and src:match("/cover/fallback/([^%.]+)%.")
+        if id and not covers[id] then
+            covers[id] = absolute(src)
+            cover_titles[id] = clean((attr(image, "alt") or ""):gsub("%s+[Cc]over$", ""))
+        end
+    end
     for _, link in ipairs(dom.select(html, 'a[href*="/series/"]')) do
         local href = attr(link, "href")
+        local id = href and href:match("/series/([^/]+)/[^/?#]+")
         local title = clean(link.text)
+        if title == "" and id then title = cover_titles[id] or "" end
         title = clean((title:gsub("%s+[Cc]over$", "")))
         local url = href and absolute(href)
-        if url and title ~= "" and not seen[url] then
+        if url and id and title ~= "" and not seen[url] then
             seen[url] = true
             results[#results + 1] = {
                 title = title,
                 manga_title = title,
                 url = url,
                 manga_url = url,
-                thumbnail_url = "",
+                thumbnail_url = covers[id] or ("https://temp.compsci88.com/cover/fallback/" .. id .. ".jpg"),
                 source = "Weeb Central",
                 language = "en"
             }
@@ -108,7 +128,10 @@ function M.pages(chapter_url)
 end
 
 function M.latest()
-    return card_results(get(BASE_URL .. "/"))
+    local html = get(BASE_URL .. "/latest-updates/1")
+    local ok, next_page = pcall(get, BASE_URL .. "/latest-updates/2")
+    if ok then html = html .. next_page end
+    return card_results(html)
 end
 
 function M.popular()
