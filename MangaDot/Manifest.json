@@ -1,0 +1,11 @@
+{
+    "id": "mangadot",
+    "name": "MangaDot",
+    "version": "0.0.1",
+    "url": "https://mangadot.net",
+    "logo": "https://mangadot.net/icon.png",
+    "Language": "en",
+    "ContentRating": "Mix",
+    "Type": "Aggregator",
+    "CL": "False"
+}

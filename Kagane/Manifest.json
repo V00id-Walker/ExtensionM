@@ -1,0 +1,11 @@
+{
+    "id": "kagane",
+    "name": "Kagane",
+    "version": "0.0.1",
+    "url": "https://kagane.to",
+    "logo": "https://kagane.to/favicon.ico",
+    "Language": "en",
+    "ContentRating": "Mix",
+    "Type": "Aggregator",
+    "CL": "True"
+}

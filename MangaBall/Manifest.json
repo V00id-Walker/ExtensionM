@@ -1,0 +1,11 @@
+{
+    "id": "mangaball",
+    "name": "MangaBall",
+    "version": "0.0.1",
+    "url": "https://mangaball.net",
+    "logo": "https://mangaball.net/public/frontend/images/favicon.png",
+    "Language": "en",
+    "ContentRating": "Mix",
+    "Type": "Aggregator",
+    "CL": "False"
+}

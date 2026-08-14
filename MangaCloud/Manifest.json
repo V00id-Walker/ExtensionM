@@ -1,0 +1,11 @@
+{
+    "id": "mangacloud",
+    "name": "MangaCloud",
+    "version": "0.0.1",
+    "url": "https://mangacloud.org",
+    "logo": "https://mangacloud.org/favicon.ico",
+    "Language": "en",
+    "ContentRating": "Safe",
+    "Type": "Aggregator",
+    "CL": "True"
+}
