@@ -24,6 +24,37 @@ local function detail_value(html, label)
     return text_only(block)
 end
 local function absolute(url) return stdlib.url_join(BASE_URL, url or "") end
+local function infer_card_type(title, block)
+    title = title or ""
+    block = block or ""
+    if block:find("[Ee]pisode%s*[%d%.]+") then return "Manhwa" end
+    local lower = title:lower()
+    if lower:find("martial peak", 1, true)
+        or lower:find("apotheosis", 1, true)
+        or lower:find("magic emperor", 1, true)
+        or lower:find("nano machine", 1, true)
+        or lower:find("tales of demons and gods", 1, true)
+        or lower:find("log into the future", 1, true) then
+        return "Manhua"
+    end
+    if lower:find("solo leveling", 1, true)
+        or lower:find("academy", 1, true)
+        or lower:find("max-level", 1, true)
+        or lower:find("lookism", 1, true)
+        or lower:find("schooled", 1, true)
+        or lower:find("pick me up", 1, true)
+        or lower:find("infinite mage", 1, true)
+        or lower:find("reality quest", 1, true)
+        or lower:find("eleceed", 1, true)
+        or lower:find("novel's extra", 1, true)
+        or lower:find("iron-blooded hound", 1, true)
+        or lower:find("swordmaster", 1, true)
+        or lower:find("overgeared", 1, true)
+        or lower:find("deadbeat noble", 1, true) then
+        return "Manhwa"
+    end
+    return "Manga"
+end
 local function headers()
     return { ["User-Agent"] = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36" }
 end
@@ -52,6 +83,9 @@ local function card_results(html)
         title = clean((title:gsub("%s+[Cc]over$", "")))
         local url = href and absolute(href)
         if url and id and title ~= "" and not seen[url] then
+            local escaped_href = href:gsub("([^%w])", "%%%1")
+            local block = html:match("<article[^>]->.-" .. escaped_href .. ".-</article>") or ""
+            local content_type = infer_card_type(title, block)
             seen[url] = true
             results[#results + 1] = {
                 title = title,
@@ -59,6 +93,8 @@ local function card_results(html)
                 url = url,
                 manga_url = url,
                 thumbnail_url = covers[id] or ("https://temp.compsci88.com/cover/fallback/" .. id .. ".jpg"),
+                type = content_type,
+                sourceType = content_type,
                 source = "Weeb Central",
                 language = "en"
             }
