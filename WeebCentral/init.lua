@@ -90,7 +90,13 @@ end
 
 function M.chapters(manga_url)
     manga_url = absolute(manga_url)
-    local html = get(manga_url)
+    local series_id = manga_url:match("/series/([^/]+)")
+    local html = ""
+    if series_id then
+        local ok, full_html = pcall(get, BASE_URL .. "/series/" .. series_id .. "/full-chapter-list")
+        if ok and full_html ~= "" then html = full_html end
+    end
+    if html == "" then html = get(manga_url) end
     local results, seen = {}, {}
     for _, link in ipairs(dom.select(html, 'a[href*="/chapters/"]')) do
         local href = attr(link, "href")
@@ -99,6 +105,9 @@ function M.chapters(manga_url)
             if not seen[url] and not url:find("/bookmarks", 1, true) and not url:find("/report", 1, true) then
                 seen[url] = true
                 local text = clean(link.text)
+                if text == "" then
+                    text = clean((link.text or html:match('href="' .. href:gsub("([^%w])", "%%%1") .. '".-[Cc]hapter%s*[%d%.]+') or ""):match("([Cc]hapter%s*[%d%.]+)") or "")
+                end
                 local number = text:match("[Cc]hapter%s*([%d%.]+)") or text:match("[Ee]pisode%s*([%d%.]+)")
                 results[#results + 1] = {
                     source_url = url,
