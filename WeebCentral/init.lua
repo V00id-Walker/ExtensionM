@@ -21,6 +21,12 @@ local function headers()
     return { ["User-Agent"] = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36" }
 end
 local function get(url) return http.get(url, headers()) end
+local MONTHS = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" }
+local function display_date(value)
+    local year, month, day = tostring(value or ""):match("^(%d%d%d%d)%-(%d%d)%-(%d%d)")
+    if not year then return value or "" end
+    return (MONTHS[tonumber(month)] or month) .. " " .. tostring(tonumber(day) or day) .. ", " .. year
+end
 
 local function card_results(html)
     local results, seen, covers, cover_titles = {}, {}, {}, {}
@@ -116,7 +122,7 @@ function M.chapters(manga_url)
                     source_url = url,
                     name = text ~= "" and text or "Chapter",
                     chapter_number = number,
-                    upload_date_text = date,
+                    upload_date_text = display_date(date),
                     language = "en"
                 }
             end
