@@ -4,7 +4,17 @@ local BASE_URL = "https://weebcentral.com"
 local function first(html, selector) return dom.select(html, selector)[1] end
 local function attr(element, name) return element and element.attributes and element.attributes[name] end
 local function clean(text)
-    return stdlib.trim(((text or ""):gsub("&amp;", "&"):gsub("&#039;", "'"):gsub("&quot;", '"'):gsub("%s+", " ")))
+    text = text or ""
+    for _ = 1, 2 do
+        text = text:gsub("&amp;", "&")
+            :gsub("&#039;", "'")
+            :gsub("&#39;", "'")
+            :gsub("&apos;", "'")
+            :gsub("&quot;", '"')
+            :gsub("&lt;", "<")
+            :gsub("&gt;", ">")
+    end
+    return stdlib.trim((text:gsub("%s+", " ")))
 end
 local function absolute(url) return stdlib.url_join(BASE_URL, url or "") end
 local function headers()
@@ -118,7 +128,10 @@ function M.pages(chapter_url)
 end
 
 function M.latest()
-    return card_results(get(BASE_URL .. "/"))
+    local html = get(BASE_URL .. "/latest-updates/1")
+    local ok, next_page = pcall(get, BASE_URL .. "/latest-updates/2")
+    if ok then html = html .. next_page end
+    return card_results(html)
 end
 
 function M.popular()
