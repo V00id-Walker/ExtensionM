@@ -20,6 +20,11 @@ local function absolute(url) return stdlib.url_join(BASE_URL, url or "") end
 local function headers()
     return { ["User-Agent"] = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36" }
 end
+local function form_headers()
+    local values = headers()
+    values["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8"
+    return values
+end
 local function get(url) return http.get(url, headers()) end
 
 local function card_results(html)
@@ -58,7 +63,7 @@ end
 function M.search(params)
     params = params or {}
     local query = params.query or params.title or ""
-    local html = http.post and http.post(BASE_URL .. "/search/simple?location=main", http.encode({ text = query }), headers())
+    local html = http.post and http.post(BASE_URL .. "/search/simple?location=main", http.encode({ text = query }), form_headers())
         or get(BASE_URL .. "/search?" .. http.encode({ text = query }))
     return card_results(html)
 end
