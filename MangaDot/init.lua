@@ -1,43 +1,30 @@
 local M = {}
 local BASE_URL = "https://mangadot.net"
 local function attr(element, name) return element and element.attributes and element.attributes[name] end
-local function clean(text) return stdlib.trim(((text or ""):gsub("&amp;", "&"):gsub("&#039;", "'"):gsub("&quot;", '"'):gsub("%s+", " "))) end
+local function clean(text) return stdlib.trim((tostring(text or ""):gsub("&amp;", "&"):gsub("&#039;", "'"):gsub("&quot;", '"'):gsub("%s+", " "))) end
 local function absolute(url) return stdlib.url_join(BASE_URL, url or "") end
 local function get(url) return http.get(url, { ["User-Agent"] = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36" }) end
-local function normalize_type(value)
-    value = clean(value):lower()
-    if value:find("manhwa", 1, true) then return "manhwa" end
-    if value:find("manhua", 1, true) then return "manhua" end
+local function origin_type(value)
+    value = clean(value):upper()
+    if value == "KR" then return "manhwa" end
+    if value == "CN" then return "manhua" end
     return "manga"
 end
-local function extract_type(html)
-    html = html or ""
-    local value = html:match("[Tt]ype%s*</[^>]+>%s*<[^>]+>%s*([^<]+)")
-        or html:match("[Tt]ype%s*:%s*([^<\n]+)")
-        or html:match('href="[^"]*[Tt]ype[^"]*"[^>]*>([^<]+)')
-    return normalize_type(value)
+local function card_url(item)
+    if item.slug then return absolute("/manga/" .. item.slug) end
+    return absolute("/manga/" .. tostring(item.id or ""))
 end
-local function detail_type(url)
-    local ok, html = pcall(get, absolute(url))
-    if not ok or not html then return "manga" end
-    return extract_type(html)
-end
-local function cards(html)
-    local results, seen = {}, {}
-    for _, link in ipairs(dom.select(html, 'a[href*="/manga/"]')) do
-        local href = attr(link, "href")
-        local url = href and absolute(href)
-        local title = clean(attr(link, "title") or link.text)
-        if title == "" then
-            local block = html:match('href="' .. href:gsub("([^%w])", "%%%1") .. '".-</a>') or ""
-            title = clean(block:match('alt="([^"]+)"') or "")
-        end
-        if url and title ~= "" and not seen[url] then
-            local block = html:match('href="' .. href:gsub("([^%w])", "%%%1") .. '".-</a>') or ""
-            local image = block:match('src="([^"]+)"') or ""
-            seen[url] = true
-            local cover = absolute(image)
-            local kind = detail_type(url)
+local function items_from_json(raw)
+    local ok, data = pcall(json.parse, raw or "")
+    if not ok or not data then return {} end
+    local list = data.manga_list or data.results or data
+    local results = {}
+    for _, item in ipairs(list or {}) do
+        local title = clean(item.title)
+        if title ~= "" then
+            local cover = absolute(item.photo or item.cover or item.thumbnail_url or "")
+            local kind = origin_type(item.country_of_origin or item.origin or "")
+            local url = card_url(item)
             results[#results + 1] = { title = title, manga_title = title, url = url, manga_url = url,
                 thumbnail_url = cover, type = kind, sourceType = kind, source = "MangaDot", language = "en" }
         end
@@ -46,7 +33,16 @@ local function cards(html)
 end
 function M.search(params)
     params = params or {}
-    return cards(get(BASE_URL .. "/search?" .. http.encode({ q = params.query or params.title or "" })))
+    local query = {
+        q = params.query or params.title or "",
+        page = params.page or 1,
+        limit = params.limit or 20,
+        sortBy = params.sort or "latest",
+        sortOrder = "desc",
+        strict_adult = 0
+    }
+    if query.q == "*" then query.q = "" end
+    return items_from_json(get(BASE_URL .. "/api/search?" .. http.encode(query)))
 end
 function M.manga_details(url)
     url = absolute(url)
@@ -58,7 +54,8 @@ function M.manga_details(url)
         local value = clean(genre.text)
         if value ~= "" then genres[#genres + 1] = value end
     end
-    local kind = extract_type(html)
+    local origin = html:match('"country_of_origin"%s*:%s*"([^"]+)"') or ""
+    local kind = origin_type(origin)
     return { title = title, url = url, genres_json = json.encode(genres), thumbnail_url = absolute(image), type = kind, source = "MangaDot", language = "en" }
 end
 function M.chapters(manga_url)
@@ -85,6 +82,6 @@ function M.pages(chapter_url)
     end
     return results
 end
-function M.latest() return cards(get(BASE_URL .. "/")) end
-function M.popular() return cards(get(BASE_URL .. "/view-all/popular")) end
+function M.latest() return items_from_json(get(BASE_URL .. "/api/manga/section/latest-updates?page=1&limit=20")) end
+function M.popular() return items_from_json(get(BASE_URL .. "/api/manga/section/most-tracked?page=1&limit=20")) end
 return M
