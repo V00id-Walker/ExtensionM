@@ -36,7 +36,7 @@ end
 local function infer_card_type(title, block)
     title = title or ""
     block = block or ""
-    if block:find("[Ee]pisode%s*[%d%.]+") then return "Manhwa" end
+    if block:find("[Ee]pisode%s*[%d%.]+") then return "manhwa" end
     local lower = title:lower()
     if lower:find("martial peak", 1, true)
         or lower:find("apotheosis", 1, true)
@@ -44,7 +44,7 @@ local function infer_card_type(title, block)
         or lower:find("nano machine", 1, true)
         or lower:find("tales of demons and gods", 1, true)
         or lower:find("log into the future", 1, true) then
-        return "Manhua"
+        return "manhua"
     end
     if lower:find("solo leveling", 1, true)
         or lower:find("academy", 1, true)
@@ -60,9 +60,9 @@ local function infer_card_type(title, block)
         or lower:find("swordmaster", 1, true)
         or lower:find("overgeared", 1, true)
         or lower:find("deadbeat noble", 1, true) then
-        return "Manhwa"
+        return "manhwa"
     end
-    return "Manga"
+    return "manga"
 end
 local function headers()
     return { ["User-Agent"] = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36" }
@@ -94,13 +94,14 @@ local function card_results(html)
         if url and id and title ~= "" and not seen[url] then
             local block = surrounding_article(html, href) ~= "" and surrounding_article(html, href) or surrounding_article(html, title)
             local content_type = infer_card_type(title, block)
+            local cover = covers[id] or ("https://temp.compsci88.com/cover/fallback/" .. id .. ".jpg")
             seen[url] = true
             results[#results + 1] = {
                 title = title,
                 manga_title = title,
                 url = url,
                 manga_url = url,
-                thumbnail_url = covers[id] or ("https://temp.compsci88.com/cover/fallback/" .. id .. ".jpg"),
+                thumbnail_url = cover,
                 type = content_type,
                 sourceType = content_type,
                 source = "Weeb Central",

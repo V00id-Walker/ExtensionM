@@ -1,11 +1,11 @@
 {
     "id": "mangafire",
     "name": "MangaFire",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "url": "https://mangafire.to",
     "logo": "https://mangafire.to/assets/mangafire/favicon.svg",
     "Language": "en",
     "ContentRating": "Mix",
     "Type": "Aggregator",
-    "CL": "False"
+    "CL": "True"
 }
