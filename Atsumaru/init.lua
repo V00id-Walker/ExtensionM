@@ -21,8 +21,10 @@ local function asset(url)
 end
 local function normalize_type(value)
     value = clean(value or "")
-    if value:lower() == "manwha" then return "Manhwa" end
-    return value
+    local lower = value:lower()
+    if lower == "manwha" or lower == "manhwa" then return "manhwa" end
+    if lower == "manhua" then return "manhua" end
+    return "manga"
 end
 
 local function manga_url(id) return BASE_URL .. "/manga/" .. tostring(id or "") end
@@ -36,15 +38,17 @@ local function add_item(results, seen, item)
     local url = manga_url(id)
     if seen[url] then return end
     seen[url] = true
+    local cover = asset(item.mediumImage or item.posterMedium or item.smallImage or item.posterSmall or item.image or item.poster)
+    local kind = normalize_type(item.type)
     results[#results + 1] = {
         title = title,
         manga_title = title,
         url = url,
         manga_url = url,
-        thumbnail_url = asset(item.mediumImage or item.posterMedium or item.smallImage or item.posterSmall or item.image or item.poster),
+        thumbnail_url = cover,
         status = item.status,
-        type = normalize_type(item.type),
-        sourceType = normalize_type(item.type),
+        type = kind,
+        sourceType = kind,
         source = "Atsumaru",
         language = "en"
     }
@@ -67,25 +71,28 @@ local function search_results(raw)
     return results
 end
 
-local function search_query(query, page, per_page)
+local function explore_query(params)
+    params = params or {}
+    local query = clean(params.query or params.title or "")
+    local sort = params.sort or params.order or "recently_updated"
     return http.encode({
-        q = query ~= "" and query or "*",
+        q = query ~= "" and query ~= "*" and query or "*",
         query_by = "title,englishTitle,otherNames,authors,acronyms",
         query_by_weights = "4,3,2,1,1",
-        num_typos = "4,3,2,1,0",
+        num_typos = query ~= "" and query ~= "*" and "4,3,2,1,0" or "0,0,0,0,0",
         prefix = "true,true,true,true,false",
         include_fields = "id,title,englishTitle,poster,posterSmall,posterMedium,type,medium,isAdult,status,year,mbRating,popularity,dateAdded",
         filter_by = "hidden:!=true && isAdult:=false",
-        page = page or 1,
-        per_page = per_page or 20,
+        sort_by = (sort == "popular" or sort == "views" or sort == "most_viewed") and "popularity:desc" or "dateAdded:desc",
+        page = params.page or 1,
+        per_page = params.per_page or 20,
         infix = "off,off,fallback,off,off"
     })
 end
 
 function M.search(params)
     params = params or {}
-    local query = params.query or params.title or ""
-    return search_results(get(BASE_URL .. "/collections/manga/documents/search?" .. search_query(query, params.page or 1, 20)))
+    return search_results(get(BASE_URL .. "/collections/manga/documents/search?" .. explore_query(params)))
 end
 
 local function page_data(manga_id)

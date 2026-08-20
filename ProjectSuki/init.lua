@@ -6,9 +6,9 @@ local function absolute(url) return stdlib.url_join(BASE_URL, url or "") end
 local function get(url) return http.get(url, { ["User-Agent"] = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36" }) end
 local function infer_type(title)
     local lower = (title or ""):lower()
-    if lower:find("nano machine", 1, true) or lower:find("logging 10,000 years", 1, true) or lower:find("demonic emperor", 1, true) then return "Manhua" end
-    if lower:find("deadbeat noble", 1, true) or lower:find("solo max-level", 1, true) or lower:find("mount hua", 1, true) then return "Manhwa" end
-    return "Manga"
+    if lower:find("nano machine", 1, true) or lower:find("logging 10,000 years", 1, true) or lower:find("demonic emperor", 1, true) then return "manhua" end
+    if lower:find("deadbeat noble", 1, true) or lower:find("solo max-level", 1, true) or lower:find("mount hua", 1, true) then return "manhwa" end
+    return "manga"
 end
 local function cards(html)
     local results, seen = {}, {}
@@ -20,8 +20,10 @@ local function cards(html)
             local block = html:match('href="' .. href:gsub("([^%w])", "%%%1") .. '".-</a>') or ""
             local image = block:match('src="([^"]+)"') or html:match('href="' .. href:gsub("([^%w])", "%%%1") .. '".-src="([^"]+)"') or ""
             seen[url] = true
+            local cover = absolute(image)
+            local kind = infer_type(title)
             results[#results + 1] = { title = title, manga_title = title, url = url, manga_url = url,
-                thumbnail_url = absolute(image), type = infer_type(title), sourceType = infer_type(title),
+                thumbnail_url = cover, type = kind, sourceType = kind,
                 source = "Project Suki", language = "en" }
         end
     end

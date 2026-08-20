@@ -4,6 +4,24 @@ local function attr(element, name) return element and element.attributes and ele
 local function clean(text) return stdlib.trim(((text or ""):gsub("&amp;", "&"):gsub("&#039;", "'"):gsub("&quot;", '"'):gsub("%s+", " "))) end
 local function absolute(url) return stdlib.url_join(BASE_URL, url or "") end
 local function get(url) return http.get(url, { ["User-Agent"] = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36" }) end
+local function normalize_type(value)
+    value = clean(value):lower()
+    if value:find("manhwa", 1, true) then return "manhwa" end
+    if value:find("manhua", 1, true) then return "manhua" end
+    return "manga"
+end
+local function extract_type(html)
+    html = html or ""
+    local value = html:match("[Tt]ype%s*</[^>]+>%s*<[^>]+>%s*([^<]+)")
+        or html:match("[Tt]ype%s*:%s*([^<\n]+)")
+        or html:match('href="[^"]*[Tt]ype[^"]*"[^>]*>([^<]+)')
+    return normalize_type(value)
+end
+local function detail_type(url)
+    local ok, html = pcall(get, absolute(url))
+    if not ok or not html then return "manga" end
+    return extract_type(html)
+end
 local function cards(html)
     local results, seen = {}, {}
     for _, link in ipairs(dom.select(html, 'a[href*="/manga/"], a[href*="/series/"], a[href*="/title/"], a[href*="/comic/"]')) do
@@ -18,8 +36,10 @@ local function cards(html)
             local block = html:match('href="' .. href:gsub("([^%w])", "%%%1") .. '".-</a>') or ""
             local image = block:match('src="([^"]+)"') or block:match('data%-src="([^"]+)"') or ""
             seen[url] = true
+            local cover = absolute(image)
+            local kind = detail_type(url)
             results[#results + 1] = { title = title, manga_title = title, url = url, manga_url = url,
-                thumbnail_url = absolute(image), type = "Manga", sourceType = "Manga", source = "MangaCloud", language = "en" }
+                thumbnail_url = cover, type = kind, sourceType = kind, source = "MangaCloud", language = "en" }
         end
     end
     return results
@@ -33,7 +53,8 @@ function M.manga_details(url)
     local html = get(url)
     local title = clean((dom.select(html, "h1")[1] or {}).text or html:match('<meta property="og:title" content="([^"]+)"') or "")
     local image = html:match('<meta property="og:image" content="([^"]+)"') or ""
-    return { title = title, url = url, genres_json = "[]", thumbnail_url = absolute(image), type = "Manga", source = "MangaCloud", language = "en" }
+    local kind = extract_type(html)
+    return { title = title, url = url, genres_json = "[]", thumbnail_url = absolute(image), type = kind, source = "MangaCloud", language = "en" }
 end
 function M.chapters(manga_url)
     local html, results, seen = get(absolute(manga_url)), {}, {}

@@ -1,71 +1,150 @@
 local M = {}
-local BASE_URL = "https://comix.to"
-local function attr(element, name) return element and element.attributes and element.attributes[name] end
-local function clean(text) return stdlib.trim(((text or ""):gsub("&amp;", "&"):gsub("&#039;", "'"):gsub("&quot;", '"'):gsub("%s+", " "))) end
-local function absolute(url) return stdlib.url_join(BASE_URL, url or "") end
-local function get(url) return http.get(url, { ["User-Agent"] = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36" }) end
 
-local function cards(html)
-    local results, seen = {}, {}
-    for _, link in ipairs(dom.select(html, 'a[href*="/comic/"], a[href*="/title/"], a[href*="/series/"], a[href*="/manga/"]')) do
-        local href = attr(link, "href")
-        local url = href and absolute(href)
-        local title = clean(attr(link, "title") or link.text)
-        if title == "" and href then
-            local block = html:match('href="' .. href:gsub("([^%w])", "%%%1") .. '".-</a>') or ""
-            title = clean(block:match('alt="([^"]+)"') or "")
-        end
-        if url and title ~= "" and not seen[url] then
-            local block = html:match('href="' .. href:gsub("([^%w])", "%%%1") .. '".-</a>') or ""
-            local image = block:match('src="([^"]+)"') or block:match('data%-src="([^"]+)"') or ""
-            seen[url] = true
-            results[#results + 1] = { title = title, manga_title = title, url = url, manga_url = url,
-                thumbnail_url = absolute(image), type = "Manga", sourceType = "Manga", source = "Comix", language = "en" }
+local BASE_URL = "https://comix.to"
+local API_URL = BASE_URL .. "/api/v1"
+
+local function trim(value)
+    return stdlib.trim(tostring(value or ""))
+end
+
+local function absolute(url)
+    url = trim(url)
+    if url == "" then return "" end
+    return stdlib.url_join(BASE_URL, url)
+end
+
+local function title_url(manga)
+    local url = trim(manga.url)
+    if url ~= "" then return absolute(url) end
+    local hid = trim(manga.hid)
+    if hid ~= "" then return BASE_URL .. "/title/" .. hid end
+    return BASE_URL
+end
+
+local function poster_url(manga)
+    local poster = manga.poster or {}
+    return trim(poster.large or poster.medium or poster.small or manga.thumbnail_url or "")
+end
+
+local function source_type(value)
+    value = trim(value):lower()
+    if value == "manhwa" then return "manhwa" end
+    if value == "manhua" then return "manhua" end
+    return "manga"
+end
+
+local function manga_card(manga)
+    local title = trim(manga.title)
+    local url = title_url(manga)
+    local kind = source_type(manga.type)
+    local cover = poster_url(manga)
+    return {
+        title = title,
+        manga_title = title,
+        url = url,
+        manga_url = url,
+        thumbnail_url = cover,
+        type = kind,
+        sourceType = kind,
+        source = "Comix",
+        language = "en",
+    }
+end
+
+local function cards(payload)
+    local list = payload.items or (payload.result and payload.result.items) or payload
+    local results = {}
+    if type(list) ~= "table" then return results end
+    for _, manga in ipairs(list) do
+        if trim(manga.title) ~= "" then
+            results[#results + 1] = manga_card(manga)
         end
     end
     return results
+end
+
+local function capture(url, kind)
+    local raw = http.webview_json(url, kind)
+    if raw == "" then return {} end
+    return json.decode(raw)
+end
+
+local function browse_url(params)
+    return API_URL .. "/manga?" .. http.encode(params or {})
 end
 
 function M.search(params)
     params = params or {}
-    return cards(get(BASE_URL .. "/search?" .. http.encode({ q = params.query or params.title or "" })))
+    local query = trim(params.query or params.title)
+    return cards(capture(browse_url({ keyword = query }), "browse"))
 end
+
+function M.popular()
+    return cards(capture(BASE_URL .. "/browse?order[score]=desc", "browse"))
+end
+
+function M.latest()
+    return cards(capture(BASE_URL .. "/browse?order[chapter_updated_at]=desc", "browse"))
+end
+
 function M.manga_details(url)
-    url = absolute(url)
-    local html = get(url)
-    local title = clean((dom.select(html, "h1")[1] or {}).text or html:match('<meta property="og:title" content="([^"]+)"') or "")
-    local image = html:match('<meta property="og:image" content="([^"]+)"') or ""
+    local manga = capture(absolute(url), "details")
     local genres = {}
-    for _, genre in ipairs(dom.select(html, 'a[href*="/genre"], a[href*="/tag"]')) do
-        local value = clean(genre.text)
-        if value ~= "" then genres[#genres + 1] = value end
+    local kind = source_type(manga.type)
+    genres[#genres + 1] = kind
+    for _, group in ipairs({ manga.genres or manga.genre or {}, manga.demographics or manga.demographic or {} }) do
+        for _, item in ipairs(group) do
+            local value = trim(item.title)
+            if value ~= "" then genres[#genres + 1] = value end
+        end
     end
-    return { title = title, url = url, genres_json = json.encode(genres), thumbnail_url = absolute(image), type = "Manga", source = "Comix", language = "en" }
+    local card = manga_card(manga)
+    card.description = trim(manga.synopsis)
+    card.genres_json = json.encode(genres)
+    return card
 end
+
+local function chapter_name(chapter)
+    local number = trim(chapter.number)
+    local name = trim(chapter.name)
+    if name ~= "" and number ~= "" then return "Chapter " .. number .. ": " .. name end
+    if name ~= "" then return name end
+    if number ~= "" then return "Chapter " .. number end
+    return "Chapter"
+end
+
 function M.chapters(manga_url)
-    local html, results, seen = get(absolute(manga_url)), {}, {}
-    for _, link in ipairs(dom.select(html, 'a[href*="/chapter"], a[href*="/read"]')) do
-        local href = attr(link, "href")
-        local url = href and absolute(href)
-        if url and not seen[url] then
-            seen[url] = true
-            local label = clean(attr(link, "title") or link.text)
-            results[#results + 1] = { source_url = url, name = label ~= "" and label or "Chapter", chapter_number = label:match("[Cc]hapter%s*([%d%.]+)"), language = "en" }
+    local chapters = capture(absolute(manga_url), "chapters")
+    local results = {}
+    for _, chapter in ipairs(chapters) do
+        local chapter_url = trim(chapter.url)
+        if chapter_url ~= "" then
+            results[#results + 1] = {
+                source_url = absolute(chapter_url),
+                name = chapter_name(chapter),
+                chapter_number = chapter.number,
+                language = "en",
+            }
         end
     end
     return results
 end
+
 function M.pages(chapter_url)
-    local html, results, seen = get(absolute(chapter_url)), {}, {}
-    for _, image in ipairs(dom.select(html, "img")) do
-        local src = attr(image, "src") or attr(image, "data-src")
-        if src and not src:find("logo", 1, true) and not src:find("favicon", 1, true) then
-            local page = absolute(src)
-            if not seen[page] then seen[page] = true; results[#results + 1] = page end
+    local payload = capture(absolute(chapter_url), "pages")
+    local base = trim(payload.baseUrl or payload.base_url):gsub("/$", "")
+    local items = payload.items or {}
+    local results = {}
+    for _, page in ipairs(items) do
+        local image = trim(page.url)
+        if image ~= "" then
+            if not image:match("^https?://") then
+                image = base .. "/" .. image:gsub("^/", "")
+            end
+            results[#results + 1] = image
         end
     end
     return results
 end
-function M.latest() return cards(get(BASE_URL .. "/")) end
-function M.popular() return cards(get(BASE_URL .. "/popular")) end
+
 return M
