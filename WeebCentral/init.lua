@@ -108,6 +108,8 @@ end
 
 function M.search(params)
     params = params or {}
+    local page = tonumber(params.page or 1) or 1
+    if page > 1 then return {} end
     local query = params.query or params.title or ""
     local html = http.post and http.post(BASE_URL .. "/search/simple?location=main", http.encode({ text = query }), form_headers())
         or get(BASE_URL .. "/search?" .. http.encode({ text = query }))
