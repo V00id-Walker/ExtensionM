@@ -30,7 +30,8 @@ local function source_type(value)
     value = trim(value):lower()
     if value == "manhwa" then return "manhwa" end
     if value == "manhua" then return "manhua" end
-    return "manga"
+    if value == "manga" then return "manga" end
+    return ""
 end
 
 local function manga_card(manga)
@@ -38,6 +39,7 @@ local function manga_card(manga)
     local url = title_url(manga)
     local kind = source_type(manga.type)
     local cover = poster_url(manga)
+    if kind == "" then return nil end
     return {
         title = title,
         manga_title = title,
@@ -57,7 +59,8 @@ local function cards(payload)
     if type(list) ~= "table" then return results end
     for _, manga in ipairs(list) do
         if trim(manga.title) ~= "" then
-            results[#results + 1] = manga_card(manga)
+            local card = manga_card(manga)
+            if card then results[#results + 1] = card end
         end
     end
     return results

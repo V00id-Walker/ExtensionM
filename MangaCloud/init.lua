@@ -8,7 +8,8 @@ local function normalize_type(value)
     value = clean(value):lower()
     if value:find("manhwa", 1, true) then return "manhwa" end
     if value:find("manhua", 1, true) then return "manhua" end
-    return "manga"
+    if value:find("manga", 1, true) then return "manga" end
+    return ""
 end
 local function extract_type(html)
     html = html or ""
@@ -19,7 +20,7 @@ local function extract_type(html)
 end
 local function detail_type(url)
     local ok, html = pcall(get, absolute(url))
-    if not ok or not html then return "manga" end
+    if not ok or not html then return "" end
     return extract_type(html)
 end
 local function cards(html)
@@ -38,8 +39,10 @@ local function cards(html)
             seen[url] = true
             local cover = absolute(image)
             local kind = detail_type(url)
-            results[#results + 1] = { title = title, manga_title = title, url = url, manga_url = url,
-                thumbnail_url = cover, type = kind, sourceType = kind, source = "MangaCloud", language = "en" }
+            if kind ~= "" then
+                results[#results + 1] = { title = title, manga_title = title, url = url, manga_url = url,
+                    thumbnail_url = cover, type = kind, sourceType = kind, source = "MangaCloud", language = "en" }
+            end
         end
     end
     return results

@@ -8,7 +8,8 @@ local function origin_type(value)
     value = clean(value):upper()
     if value == "KR" then return "manhwa" end
     if value == "CN" then return "manhua" end
-    return "manga"
+    if value == "JP" or value == "JA" then return "manga" end
+    return ""
 end
 local function card_url(item)
     if item.slug then return absolute("/manga/" .. item.slug) end
@@ -25,8 +26,10 @@ local function items_from_json(raw)
             local cover = absolute(item.photo or item.cover or item.thumbnail_url or "")
             local kind = origin_type(item.country_of_origin or item.origin or "")
             local url = card_url(item)
-            results[#results + 1] = { title = title, manga_title = title, url = url, manga_url = url,
-                thumbnail_url = cover, type = kind, sourceType = kind, source = "MangaDot", language = "en" }
+            if kind ~= "" then
+                results[#results + 1] = { title = title, manga_title = title, url = url, manga_url = url,
+                    thumbnail_url = cover, type = kind, sourceType = kind, source = "MangaDot", language = "en" }
+            end
         end
     end
     return results

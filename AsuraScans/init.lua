@@ -21,11 +21,11 @@ end
 local function normalize_type(value)
     value = stdlib.trim((value or ""):lower())
     if value == "manhua" or value == "manhwa" or value == "manga" then return value end
-    return "manga"
+    return ""
 end
 local function detail_type(url)
     local ok, html = pcall(http.get, stdlib.url_join(BASE_URL, url or ""))
-    if not ok or not html then return "manga" end
+    if not ok or not html then return "" end
     local plain = page_text(html)
     local series_type = plain:match("Type%s+([%a%s_-]+)%s+Author")
     if not series_type then
@@ -43,12 +43,14 @@ local function paired_cards(html, link_selector, image_selector)
             local url = stdlib.url_join(BASE_URL, href)
             local cover = stdlib.url_join(BASE_URL, attr(image, "src") or attr(image, "data-src") or "")
             local series_type = detail_type(url)
-            results[#results + 1] = {
-            title = title, manga_title = title,
-            url = url, manga_url = url,
-            thumbnail_url = cover,
-            type = series_type, sourceType = series_type,
-        } end
+            if series_type ~= "" then
+                results[#results + 1] = {
+                title = title, manga_title = title,
+                url = url, manga_url = url,
+                thumbnail_url = cover,
+                type = series_type, sourceType = series_type,
+            } end
+        end
     end
     return results
 end
@@ -63,7 +65,7 @@ local function embedded_browse_cards(html)
         local cover = html_unescape(block:match("&quot;cover&quot;:%[0,&quot;(https://.-)&quot;%]"))
         local url = html_unescape(block:match("&quot;public_url&quot;:%[0,&quot;(.-)&quot;%]"))
         local series_type = normalize_type(html_unescape(block:match("&quot;type&quot;:%[0,&quot;(.-)&quot;%]")))
-        if title ~= "" and cover ~= "" and url ~= "" and not seen[url] then
+        if title ~= "" and cover ~= "" and url ~= "" and series_type ~= "" and not seen[url] then
             seen[url] = true
             results[#results + 1] = {
                 title = title, manga_title = title,

@@ -41,16 +41,32 @@ local function normalize_type(value)
     return ""
 end
 local detail_type_cache = {}
+local detail_type_requests = 0
+local MAX_DETAIL_TYPE_REQUESTS = 16
 local function card_type(url)
     if detail_type_cache[url] ~= nil then return detail_type_cache[url] end
+    if detail_type_requests >= MAX_DETAIL_TYPE_REQUESTS then return "" end
     local kind = ""
+    detail_type_requests = detail_type_requests + 1
     local ok, html = pcall(get, url)
     if ok and html and html ~= "" then kind = normalize_type(detail_value(html, "Type")) end
     detail_type_cache[url] = kind
     return kind
 end
 
-local function card_results(html)
+local function type_map(html)
+    local results = {}
+    for article in (html or ""):gmatch("<article.-</article>") do
+        local href = article:match('href="([^"]-/series/[^"]+)"')
+        local section = article:match('<section[^>]-class="[^"]-flex gap%-2[^"]-"[^>]*>(.-)</section>')
+        local kind = normalize_type(text_only(section))
+        if href and kind ~= "" then results[absolute(href)] = kind end
+    end
+    return results
+end
+
+local function card_results(html, limit, types_by_url)
+    limit = limit or 20
     local results, seen, covers, cover_titles = {}, {}, {}, {}
     for _, image in ipairs(dom.select(html, 'img[src*="/cover/fallback/"]')) do
         local src = attr(image, "src")
@@ -68,7 +84,7 @@ local function card_results(html)
         title = clean((title:gsub("%s+[Cc]over$", "")))
         local url = href and absolute(href)
         if url and id and title ~= "" and not seen[url] then
-            local content_type = card_type(url)
+            local content_type = types_by_url and types_by_url[url] or card_type(url)
             local cover = covers[id] or ("https://temp.compsci88.com/cover/fallback/" .. id .. ".jpg")
             if content_type ~= "" then
                 seen[url] = true
@@ -83,6 +99,7 @@ local function card_results(html)
                     source = "Weeb Central",
                     language = "en"
                 }
+                if #results >= limit then return results end
             end
         end
     end
@@ -94,7 +111,16 @@ function M.search(params)
     local query = params.query or params.title or ""
     local html = http.post and http.post(BASE_URL .. "/search/simple?location=main", http.encode({ text = query }), form_headers())
         or get(BASE_URL .. "/search?" .. http.encode({ text = query }))
-    return card_results(html)
+    local data_html = get(BASE_URL .. "/search/data?" .. http.encode({
+        limit = 32,
+        offset = 0,
+        text = query,
+        sort = "Best Match",
+        order = "Ascending",
+        official = "Any",
+        display_mode = "Minimal Display"
+    }))
+    return card_results(html, 20, type_map(data_html))
 end
 
 function M.manga_details(url)
@@ -185,13 +211,11 @@ end
 
 function M.latest()
     local html = get(BASE_URL .. "/latest-updates/1")
-    local ok, next_page = pcall(get, BASE_URL .. "/latest-updates/2")
-    if ok then html = html .. next_page end
-    return card_results(html)
+    return card_results(html, 6)
 end
 
 function M.popular()
-    return card_results(get(BASE_URL .. "/hot-updates"))
+    return card_results(get(BASE_URL .. "/hot-updates"), 10)
 end
 
 return M

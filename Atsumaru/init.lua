@@ -24,7 +24,8 @@ local function normalize_type(value)
     local lower = value:lower()
     if lower == "manwha" or lower == "manhwa" then return "manhwa" end
     if lower == "manhua" then return "manhua" end
-    return "manga"
+    if lower == "manga" then return "manga" end
+    return ""
 end
 
 local function manga_url(id) return BASE_URL .. "/manga/" .. tostring(id or "") end
@@ -40,6 +41,7 @@ local function add_item(results, seen, item)
     seen[url] = true
     local cover = asset(item.mediumImage or item.posterMedium or item.smallImage or item.posterSmall or item.image or item.poster)
     local kind = normalize_type(item.type)
+    if kind == "" then return end
     results[#results + 1] = {
         title = title,
         manga_title = title,

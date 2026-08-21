@@ -4,11 +4,24 @@ local function attr(element, name) return element and element.attributes and ele
 local function clean(text) return stdlib.trim(((text or ""):gsub("&amp;", "&"):gsub("&#039;", "'"):gsub("&quot;", '"'):gsub("%s+", " "))) end
 local function absolute(url) return stdlib.url_join(BASE_URL, url or "") end
 local function get(url) return http.get(url, { ["User-Agent"] = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36" }) end
-local function infer_type(title)
-    local lower = (title or ""):lower()
-    if lower:find("nano machine", 1, true) or lower:find("logging 10,000 years", 1, true) or lower:find("demonic emperor", 1, true) then return "manhua" end
-    if lower:find("deadbeat noble", 1, true) or lower:find("solo max-level", 1, true) or lower:find("mount hua", 1, true) then return "manhwa" end
-    return "manga"
+local function text_only(html)
+    return clean((html or ""):gsub("<br%s*/?>", " "):gsub("<[^>]->", " "))
+end
+local function normalize_type(value)
+    value = clean(value):lower()
+    if value:find("manhwa", 1, true) then return "manhwa" end
+    if value:find("manhua", 1, true) then return "manhua" end
+    if value:find("manga", 1, true) then return "manga" end
+    return ""
+end
+local function detail_type(html)
+    return normalize_type(
+        text_only(html:match("[Tt]ype%s*</[^>]+>%s*<[^>]+>(.-)</") or
+            html:match("[Ff]ormat%s*</[^>]+>%s*<[^>]+>(.-)</") or
+            html:match("[Tt]ype%s*:%s*</[^>]+>%s*<[^>]+>(.-)</") or
+            html:match("[Ff]ormat%s*:%s*</[^>]+>%s*<[^>]+>(.-)</") or
+            "")
+    )
 end
 local function cards(html)
     local results, seen = {}, {}
@@ -21,10 +34,13 @@ local function cards(html)
             local image = block:match('src="([^"]+)"') or html:match('href="' .. href:gsub("([^%w])", "%%%1") .. '".-src="([^"]+)"') or ""
             seen[url] = true
             local cover = absolute(image)
-            local kind = infer_type(title)
-            results[#results + 1] = { title = title, manga_title = title, url = url, manga_url = url,
-                thumbnail_url = cover, type = kind, sourceType = kind,
-                source = "Project Suki", language = "en" }
+            local ok, detail_html = pcall(get, url)
+            local kind = ok and detail_type(detail_html) or ""
+            if kind ~= "" then
+                results[#results + 1] = { title = title, manga_title = title, url = url, manga_url = url,
+                    thumbnail_url = cover, type = kind, sourceType = kind,
+                    source = "Project Suki", language = "en" }
+            end
         end
     end
     return results
@@ -46,7 +62,7 @@ function M.manga_details(url)
         if value ~= "" then genres[#genres + 1] = value end
     end
     return { title = title, url = url, description = description, genres_json = json.encode(genres),
-        thumbnail_url = absolute(image), type = infer_type(title), source = "Project Suki", language = "en" }
+        thumbnail_url = absolute(image), type = detail_type(html), source = "Project Suki", language = "en" }
 end
 function M.chapters(manga_url)
     local html, results, seen = get(absolute(manga_url)), {}, {}
