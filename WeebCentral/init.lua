@@ -24,46 +24,6 @@ local function detail_value(html, label)
     return text_only(block)
 end
 local function absolute(url) return stdlib.url_join(BASE_URL, url or "") end
-local function surrounding_article(html, needle)
-    local start_at = html:find(needle, 1, true)
-    if not start_at then return "" end
-    local before = html:sub(1, start_at)
-    local article_start = before:match(".*()<article")
-    local article_end = html:find("</article>", start_at, true)
-    if not article_start or not article_end then return "" end
-    return html:sub(article_start, article_end + 9)
-end
-local function infer_card_type(title, block)
-    title = title or ""
-    block = block or ""
-    if block:find("[Ee]pisode%s*[%d%.]+") then return "manhwa" end
-    local lower = title:lower()
-    if lower:find("martial peak", 1, true)
-        or lower:find("apotheosis", 1, true)
-        or lower:find("magic emperor", 1, true)
-        or lower:find("nano machine", 1, true)
-        or lower:find("tales of demons and gods", 1, true)
-        or lower:find("log into the future", 1, true) then
-        return "manhua"
-    end
-    if lower:find("solo leveling", 1, true)
-        or lower:find("academy", 1, true)
-        or lower:find("max-level", 1, true)
-        or lower:find("lookism", 1, true)
-        or lower:find("schooled", 1, true)
-        or lower:find("pick me up", 1, true)
-        or lower:find("infinite mage", 1, true)
-        or lower:find("reality quest", 1, true)
-        or lower:find("eleceed", 1, true)
-        or lower:find("novel's extra", 1, true)
-        or lower:find("iron-blooded hound", 1, true)
-        or lower:find("swordmaster", 1, true)
-        or lower:find("overgeared", 1, true)
-        or lower:find("deadbeat noble", 1, true) then
-        return "manhwa"
-    end
-    return "manga"
-end
 local function headers()
     return { ["User-Agent"] = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36" }
 end
@@ -73,6 +33,22 @@ local function form_headers()
     return values
 end
 local function get(url) return http.get(url, headers()) end
+local function normalize_type(value)
+    value = clean(value):lower()
+    if value:find("manhwa", 1, true) or value:find("manwha", 1, true) then return "manhwa" end
+    if value:find("manhua", 1, true) then return "manhua" end
+    if value:find("manga", 1, true) then return "manga" end
+    return ""
+end
+local detail_type_cache = {}
+local function card_type(url)
+    if detail_type_cache[url] ~= nil then return detail_type_cache[url] end
+    local kind = ""
+    local ok, html = pcall(get, url)
+    if ok and html and html ~= "" then kind = normalize_type(detail_value(html, "Type")) end
+    detail_type_cache[url] = kind
+    return kind
+end
 
 local function card_results(html)
     local results, seen, covers, cover_titles = {}, {}, {}, {}
@@ -92,21 +68,22 @@ local function card_results(html)
         title = clean((title:gsub("%s+[Cc]over$", "")))
         local url = href and absolute(href)
         if url and id and title ~= "" and not seen[url] then
-            local block = surrounding_article(html, href) ~= "" and surrounding_article(html, href) or surrounding_article(html, title)
-            local content_type = infer_card_type(title, block)
+            local content_type = card_type(url)
             local cover = covers[id] or ("https://temp.compsci88.com/cover/fallback/" .. id .. ".jpg")
-            seen[url] = true
-            results[#results + 1] = {
-                title = title,
-                manga_title = title,
-                url = url,
-                manga_url = url,
-                thumbnail_url = cover,
-                type = content_type,
-                sourceType = content_type,
-                source = "Weeb Central",
-                language = "en"
-            }
+            if content_type ~= "" then
+                seen[url] = true
+                results[#results + 1] = {
+                    title = title,
+                    manga_title = title,
+                    url = url,
+                    manga_url = url,
+                    thumbnail_url = cover,
+                    type = content_type,
+                    sourceType = content_type,
+                    source = "Weeb Central",
+                    language = "en"
+                }
+            end
         end
     end
     return results
