@@ -109,19 +109,22 @@ end
 function M.search(params)
     params = params or {}
     local page = tonumber(params.page or 1) or 1
-    if page > 1 then return {} end
     local query = params.query or params.title or ""
+    local offset = math.max(page - 1, 0) * 20
     local html = http.post and http.post(BASE_URL .. "/search/simple?location=main", http.encode({ text = query }), form_headers())
         or get(BASE_URL .. "/search?" .. http.encode({ text = query }))
     local data_html = get(BASE_URL .. "/search/data?" .. http.encode({
         limit = 32,
-        offset = 0,
+        offset = offset,
         text = query,
         sort = "Best Match",
         order = "Ascending",
         official = "Any",
         display_mode = "Minimal Display"
     }))
+    if page > 1 then
+        return card_results(data_html, 20, type_map(data_html))
+    end
     return card_results(html, 20, type_map(data_html))
 end
 
