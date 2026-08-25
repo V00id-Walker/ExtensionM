@@ -1,0 +1,11 @@
+{
+    "id": "anikoto",
+    "name": "AniKoto",
+    "version": "0.0.1",
+    "url": "https://anikototv.to",
+    "logo": "https://anikototv.to/AnikotoTheme/assets/images/logo.png",
+    "Language": "en",
+    "ContentRating": "Mix",
+    "Type": "Anime",
+    "CL": "False"
+}
