@@ -20,7 +20,6 @@ end
 local function absolute(url) return stdlib.url_join(BASE_URL, url or "") end
 local function headers()
     return {
-        ["User-Agent"] = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36",
         ["Referer"] = BASE_URL .. "/"
     }
 end
@@ -46,6 +45,7 @@ end
 local function add_card(results, seen, href, title, cover, rating, format, episodes)
     title = clean(title)
     local url = absolute(href or "")
+    url = url:gsub("/ep%-[^/?#]+", "")
     if title == "" or url == "" or seen[url] then return end
     seen[url] = true
     results[#results + 1] = {
@@ -81,21 +81,22 @@ end
 local function cards_from_page(html, limit)
     local results, seen = {}, {}
     limit = limit or 24
-    for block in (html or ""):gmatch('<div class="item[^"]*".-</div>%s*</div>%s*</div>') do
-        local href = block:match('href="([^"]-/watch/[^"]+)"') or block:match('href="([^"]+)"')
-        local cover = block:match('<img[^>]-src="([^"]+)"') or block:match("background%-image:%s*url%('([^']+)'%)")
-        local title = block:match('class="name[^"]*"[^>]*>(.-)</') or block:match('class="title[^"]*"[^>]*>(.-)</')
-        local rating = block:match('class="rating"[^>]*>(.-)</i>') or block:match('class="dot rating"[^>]*>(.-)</span>')
-        local format = block:match('<span class="dot">([^<]-)</span>') or block:match('class="type"[^>]*>(.-)</')
-        local episodes = block:match('class="ep%-status[^"]*"[^>]*>(%d+)')
+    for block in (html or ""):gmatch('<div class="item[^"]*">%s*<div class="inner">(.-)<div class="genre">') do
+        local href = block:match('<a class="name[^"]*" href="([^"]+)"') or block:match('<a href="([^"]-/watch/[^"]+)"')
+        local cover = block:match('<img[^>]-src="([^"]+)"')
+        local title = block:match('<a class="name[^"]*"[^>]*>(.-)</a>') or block:match('<img[^>]-alt="([^"]+)"')
+        local rating = block:match('<div class="m%-item rated">%s*<span>(.-)</span>') or block:match('class="rating"[^>]*>(.-)</i>')
+        local format = block:match('<div class="right">(.-)</div>') or block:match('<label>([^<]-)</label>')
+        local episodes = block:match('class="ep%-status total"[^>]*>%s*<span>%s*(%d+)')
+            or block:match('<div class="m%-item">%s*<span>%s*(%d+)')
         add_card(results, seen, href, title, cover, rating, format, episodes)
         if #results >= limit then return results end
     end
     if #results == 0 then
         for _, link in ipairs(dom.select(html, 'a[href*="/watch/"]')) do
             local href = attr(link, "href")
-            local title = clean(link.text)
-            if title ~= "" then add_card(results, seen, href, title, "", "", "", nil) end
+            local title = clean(attr(link, "title") or link.text)
+            if title ~= "" and not title:match("^%d[%d%s]*%a*$") then add_card(results, seen, href, title, "", "", "", nil) end
             if #results >= limit then return results end
         end
     end
@@ -207,8 +208,7 @@ local function streams_from_server_html(html)
                         audio = audio,
                         is_hls = embed:find("%.m3u8", 1, true) ~= nil,
                         headers = {
-                            ["Referer"] = BASE_URL .. "/",
-                            ["User-Agent"] = headers()["User-Agent"]
+                            ["Referer"] = BASE_URL .. "/"
                         }
                     }
                 end
