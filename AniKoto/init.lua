@@ -1,5 +1,6 @@
 local M = {}
 local BASE_URL = "https://anikototv.to"
+local MEGAPLAY_URL = "https://megaplay.buzz"
 
 local function first(html, selector) return dom.select(html, selector)[1] end
 local function attr(element, name) return element and element.attributes and element.attributes[name] end
@@ -30,6 +31,7 @@ local function ajax_headers()
 end
 local function get(url) return http.get(url, headers()) end
 local function ajax(url) return http.get(url, ajax_headers()) end
+local function get_with_headers(url, values) return http.get(url, values) end
 
 local function json_result(raw)
     local ok, data = pcall(json.parse, raw or "")
@@ -189,6 +191,65 @@ function M.chapters(anime_url)
     return results
 end
 
+local function first_source_file(sources)
+    if type(sources) == "table" then
+        if type(sources.file) == "string" then return sources.file end
+        if type(sources[1]) == "table" and type(sources[1].file) == "string" then return sources[1].file end
+    end
+    return nil
+end
+
+local function subtitle_tracks(tracks)
+    local results = {}
+    if type(tracks) ~= "table" then return results end
+    for _, track in ipairs(tracks) do
+        if type(track) == "table" and type(track.file) == "string" and track.file ~= "" then
+            results[#results + 1] = {
+                url = track.file,
+                file = track.file,
+                label = clean(track.label or track.name or track.language or "Subtitle"),
+                language = clean(track.language or track.lang or ""),
+                kind = clean(track.kind or "")
+            }
+        end
+    end
+    return results
+end
+
+local function resolve_megaplay(embed_url)
+    local referer = embed_url
+    local embed_headers = {
+        ["Referer"] = BASE_URL .. "/"
+    }
+    local html = get_with_headers(embed_url, embed_headers)
+    local source_id = html:match('id="megaplay%-player"[^>]-data%-id="([^"]+)"')
+        or html:match('data%-id="([^"]+)"')
+    if not source_id then return nil end
+    local query = { id = source_id }
+    local cdn = tostring(embed_url):match("[?&]s=([^&#]+)")
+    if cdn and cdn ~= "" then query.s = cdn end
+    local source_headers = {
+        ["Referer"] = referer,
+        ["X-Requested-With"] = "XMLHttpRequest"
+    }
+    local data = json_result(get_with_headers(MEGAPLAY_URL .. "/stream/getSources?" .. http.encode(query), source_headers))
+    if not data or not data.sources then
+        data = json_result(get_with_headers(MEGAPLAY_URL .. "/stream/getSourcesNew?" .. http.encode(query), source_headers))
+    end
+    local file = data and first_source_file(data.sources)
+    if not file or file == "" then return nil end
+    return {
+        url = file,
+        is_hls = file:find("%.m3u8", 1, true) ~= nil,
+        headers = {
+            ["Referer"] = MEGAPLAY_URL .. "/",
+            ["Origin"] = MEGAPLAY_URL
+        },
+        subtitle_tracks = subtitle_tracks(data.tracks),
+        subtitles = subtitle_tracks(data.tracks)
+    }
+end
+
 local function streams_from_server_html(html)
     local results = {}
     for type_block in tostring(html):gmatch('<div class="type" data%-type="[^"]+".-</div>') do
@@ -201,16 +262,13 @@ local function streams_from_server_html(html)
                 local result = data and data.result or {}
                 local embed = result.url
                 if embed and embed ~= "" then
-                    results[#results + 1] = {
-                        url = embed,
-                        server = server ~= "" and server or "AniKoto",
-                        quality = server,
-                        audio = audio,
-                        is_hls = embed:find("%.m3u8", 1, true) ~= nil,
-                        headers = {
-                            ["Referer"] = BASE_URL .. "/"
-                        }
-                    }
+                    local stream = resolve_megaplay(embed)
+                    if stream and stream.url and stream.url ~= "" then
+                        stream.server = server ~= "" and server or "AniKoto"
+                        stream.quality = stream.quality or server
+                        stream.audio = audio
+                        results[#results + 1] = stream
+                    end
                 end
             end
         end
