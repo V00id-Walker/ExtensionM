@@ -199,6 +199,18 @@ local function first_source_file(sources)
     return nil
 end
 
+local function subtitle_language(track)
+    local label = clean(track.label or track.name or track.language or track.lang or ""):lower()
+    local file = tostring(track.file or ""):lower()
+    local text = label .. " " .. file
+    if text:find("eng", 1, true) or text:find("english", 1, true) then return "en" end
+    if text:find("chi", 1, true) or text:find("zho", 1, true) or text:find("chinese", 1, true) then return "zh" end
+    if text:find("ind", 1, true) or text:find("indonesian", 1, true) then return "id" end
+    if text:find("tha", 1, true) or text:find("thai", 1, true) then return "th" end
+    if text:find("vie", 1, true) or text:find("vietnamese", 1, true) then return "vi" end
+    return clean(track.language or track.lang or "")
+end
+
 local function subtitle_tracks(tracks)
     local results = {}
     if type(tracks) ~= "table" then return results end
@@ -208,8 +220,10 @@ local function subtitle_tracks(tracks)
                 url = track.file,
                 file = track.file,
                 label = clean(track.label or track.name or track.language or "Subtitle"),
-                language = clean(track.language or track.lang or ""),
-                kind = clean(track.kind or "")
+                language = subtitle_language(track),
+                lang = subtitle_language(track),
+                kind = clean(track.kind or ""),
+                default = track.default == true
             }
         end
     end
