@@ -216,6 +216,13 @@ local function subtitle_tracks(tracks)
     return results
 end
 
+local function add_subtitle_aliases(stream, tracks)
+    stream.subtitles = tracks
+    stream.subtitle_tracks = tracks
+    stream.subtitleTracks = tracks
+    return stream
+end
+
 local function resolve_megaplay(embed_url)
     local referer = embed_url
     local embed_headers = {
@@ -238,22 +245,26 @@ local function resolve_megaplay(embed_url)
     end
     local file = data and first_source_file(data.sources)
     if not file or file == "" then return nil end
-    return {
+    return add_subtitle_aliases({
         url = file,
         is_hls = file:find("%.m3u8", 1, true) ~= nil,
         headers = {
             ["Referer"] = MEGAPLAY_URL .. "/",
             ["Origin"] = MEGAPLAY_URL
-        },
-        subtitle_tracks = subtitle_tracks(data.tracks),
-        subtitles = subtitle_tracks(data.tracks)
-    }
+        }
+    }, subtitle_tracks(data.tracks))
 end
 
 local function streams_from_server_html(html)
     local results = {}
-    for type_block in tostring(html):gmatch('<div class="type" data%-type="[^"]+".-</div>') do
-        local audio = type_block:match('data%-type="([^"]+)"') or ""
+    local body = tostring(html or "")
+    local cursor = 1
+    while true do
+        local start_pos, content_pos, audio = body:find('<div class="type" data%-type="([^"]+)">', cursor)
+        if not start_pos then break end
+        local next_pos = body:find('<div class="type" data%-type="[^"]+">', content_pos + 1)
+        local type_block = body:sub(content_pos + 1, (next_pos or (#body + 1)) - 1)
+        cursor = next_pos or (#body + 1)
         for li in type_block:gmatch("<li [^>]-data%-link%-id=\"[^\"]+\"[^>]*>.-</li>") do
             local link_id = li:match('data%-link%-id="([^"]+)"')
             local server = clean(li:match(">(.-)</li>") or "")
