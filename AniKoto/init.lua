@@ -237,6 +237,30 @@ local function add_subtitle_aliases(stream, tracks)
     return stream
 end
 
+local function skip_data_ranges(data)
+    local skip_data = data and data.skip_data
+    if type(skip_data) ~= "table" then return nil end
+    local ranges = {}
+    local function add_range(kind, values)
+        if type(values) ~= "table" then return end
+        local start_time = tonumber(values[1])
+        local end_time = tonumber(values[2])
+        if start_time and end_time and end_time > start_time then
+            ranges[#ranges + 1] = {
+                type = kind,
+                start = start_time,
+                ["end"] = end_time,
+                start_time = start_time,
+                end_time = end_time
+            }
+        end
+    end
+    add_range("intro", skip_data.intro)
+    add_range("outro", skip_data.outro)
+    if #ranges == 0 then return nil end
+    return ranges
+end
+
 local function resolve_megaplay(embed_url)
     local referer = embed_url
     local embed_headers = {
@@ -282,19 +306,23 @@ local function streams_from_server_html(html)
         for li in type_block:gmatch("<li [^>]-data%-link%-id=\"[^\"]+\"[^>]*>.-</li>") do
             local link_id = li:match('data%-link%-id="([^"]+)"')
             local server = clean(li:match(">(.-)</li>") or "")
-            if link_id then
-                local data = json_result(ajax(BASE_URL .. "/ajax/server?get=" .. link_id))
-                local result = data and data.result or {}
-                local embed = result.url
-                if embed and embed ~= "" then
-                    local stream = resolve_megaplay(embed)
-                    if stream and stream.url and stream.url ~= "" then
-                        stream.server = server ~= "" and server or "AniKoto"
-                        stream.quality = stream.quality or server
-                        stream.audio = audio
-                        results[#results + 1] = stream
+                if link_id then
+                    local data = json_result(ajax(BASE_URL .. "/ajax/server?get=" .. link_id))
+                    local result = data and data.result or {}
+                    local embed = result.url
+                    if embed and embed ~= "" then
+                        local stream = resolve_megaplay(embed)
+                        if stream and stream.url and stream.url ~= "" then
+                            local skip_ranges = skip_data_ranges(result)
+                            stream.server = server ~= "" and server or "AniKoto"
+                            stream.quality = stream.quality or server
+                            stream.audio = audio
+                            stream.skip_data = result.skip_data
+                            stream.skip_ranges = skip_ranges
+                            stream.skipRanges = skip_ranges
+                            results[#results + 1] = stream
+                        end
                     end
-                end
             end
         end
     end
