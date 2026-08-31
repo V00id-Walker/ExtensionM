@@ -165,7 +165,7 @@ function M.chapters(anime_url)
     local data = json_result(ajax(BASE_URL .. "/ajax/episode/list/" .. id))
     local episode_html = data and data.result or ""
     local results, seen = {}, {}
-    for block in tostring(episode_html):gmatch("<a [^>]-data%-id=\"%d+\".-</a>") do
+    for block in tostring(episode_html):gmatch("<a%s+[^>]-data%-id=\"%d+\".-</a>") do
         local ep_id = block:match('data%-id="([^"]+)"')
         local number = block:match('data%-num="([^"]+)"') or block:match('data%-slug="([^"]+)"')
         local slug = block:match('data%-slug="([^"]+)"') or number
@@ -188,6 +188,9 @@ function M.chapters(anime_url)
             }
         end
     end
+    table.sort(results, function(a, b)
+        return (tonumber(a.episode_sort_key) or tonumber(a.episode_number) or 0) < (tonumber(b.episode_sort_key) or tonumber(b.episode_number) or 0)
+    end)
     return results
 end
 
