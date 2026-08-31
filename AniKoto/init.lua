@@ -105,16 +105,46 @@ local function cards_from_page(html, limit)
     return results
 end
 
+local function search_rank(row, query)
+    local title = clean(row.title or ""):lower()
+    local normalized = clean(query or ""):lower()
+    local score = 0
+    if title == normalized then score = score - 1000 end
+    if title:find("special", 1, true) then score = score + 80 end
+    if title:find("movie", 1, true) then score = score + 80 end
+    if title:find("episode of", 1, true) then score = score + 70 end
+    if title:find("recap", 1, true) then score = score + 70 end
+    if title:find("film", 1, true) then score = score + 50 end
+    score = score - ((tonumber(row.episode_count) or 0) / 10)
+    return score
+end
+
+local function sort_search_results(results, query)
+    table.sort(results, function(a, b)
+        local left = search_rank(a, query)
+        local right = search_rank(b, query)
+        if left == right then return clean(a.title or "") < clean(b.title or "") end
+        return left < right
+    end)
+    return results
+end
+
 function M.search(params)
     params = params or {}
     local query = params.query or params.title or ""
+    local fallback = cards_from_page(get(BASE_URL .. "/filter?" .. http.encode({ keyword = query })), 48)
     local raw = ajax(BASE_URL .. "/ajax/anime/search?" .. http.encode({ keyword = query }))
     local data = json_result(raw)
     if data and data.result and data.result.html then
         local rows = cards_from_search_html(data.result.html)
-        if #rows > 0 then return rows end
+        local seen = {}
+        for _, row in ipairs(rows) do seen[row.url] = true end
+        for _, row in ipairs(fallback) do
+            if not seen[row.url] then rows[#rows + 1] = row end
+        end
+        if #rows > 0 then return sort_search_results(rows, query) end
     end
-    return cards_from_page(get(BASE_URL .. "/filter?" .. http.encode({ keyword = query })), 24)
+    return sort_search_results(fallback, query)
 end
 
 local function watch_id(url, html)
