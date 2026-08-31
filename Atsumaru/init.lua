@@ -100,10 +100,30 @@ end
 local function page_data(manga_id)
     local html = get(manga_url(manga_id))
     local raw = html:match("window%.mangaPage%s*=%s*(.-)%s*</script>")
-    if not raw or raw:find("PREFETCHED_MANGA_PAGE", 1, true) then return nil end
-    raw = raw:gsub(";%s*$", "")
+    if raw and not raw:find("PREFETCHED_MANGA_PAGE", 1, true) then
+        raw = raw:gsub(";%s*$", "")
+        local ok, data = pcall(json.parse, raw)
+        if ok and data then return data end
+    end
+    local api_raw = get(BASE_URL .. "/api/manga/page?" .. http.encode({ id = manga_id }))
+    local ok, data = pcall(json.parse, api_raw)
+    return ok and data or nil
+end
+
+local function all_chapters_data(manga_id)
+    local raw = get(BASE_URL .. "/api/manga/allChapters?" .. http.encode({ mangaId = manga_id }))
     local ok, data = pcall(json.parse, raw)
     return ok and data or nil
+end
+
+local function scanlator_names(page)
+    local names = {}
+    for _, scanlator in ipairs((page or {}).scanlators or {}) do
+        if scanlator.id and scanlator.name then
+            names[tostring(scanlator.id)] = clean(scanlator.name)
+        end
+    end
+    return names
 end
 
 function M.manga_details(url)
@@ -132,16 +152,23 @@ end
 
 function M.chapters(manga_url_value)
     local id = tostring(manga_url_value or ""):match("/manga/([^/?#]+)") or tostring(manga_url_value or "")
-    local data = page_data(id)
-    local chapters = data and data.mangaPage and data.mangaPage.chapters or {}
+    local page = page_data(id)
+    local scanlators = scanlator_names(page and page.mangaPage)
+    local data = all_chapters_data(id) or page
+    local chapters = data and (data.chapters or (data.mangaPage and data.mangaPage.chapters)) or {}
     local results = {}
     for _, chapter in ipairs(chapters) do
         if chapter.id then
+            local scanlator_id = chapter.scanlationMangaId or chapter.scanlatorId or chapter.scanId
+            local scanlator = scanlator_id and scanlators[tostring(scanlator_id)] or clean(chapter.scanlator or chapter.scanlationProvider or "")
             results[#results + 1] = {
                 source_url = manga_url(id) .. "?chapter=" .. chapter.id,
                 name = clean(chapter.title or ("Chapter " .. tostring(chapter.number or ""))),
                 chapter_number = chapter.number,
+                chapter_sort_key = chapter.index,
+                scanlator = scanlator ~= "" and scanlator or nil,
                 upload_date = chapter.createdAt,
+                page_count = chapter.pageCount,
                 language = "en"
             }
         end
